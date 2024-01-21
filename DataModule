@@ -110,3 +110,12 @@ conn.Errors.Clear
 
 End Sub
 
+Public Function GetNewConnection() As ADODB.Connection
+Dim oCn As New ADODB.Connection
+Dim sCnStr As String
+sCnStr = "your connection string is here"
+oCn.Open sCnStr
+If oCn.State = adStateOpen Then
+Set GetNewConnection = oCn
+End If
+End Function
