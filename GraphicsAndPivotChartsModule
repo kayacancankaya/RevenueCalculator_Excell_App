@@ -1,1 +1,477 @@
+Function createPivotTableandCache(tabloIsmi, grafikIsmi, gosterWsPt, gosterHucrePt, satirDeger, veriDeger, filtreDeger)
+
+Dim pc As PivotCache
+Dim pt As PivotTable
+Dim pf As PivotField
+Dim pi As PivotItem
+Dim sh As Shape
+Dim ch As chart
+Dim titleText As String
+
+
+'yok ise kaşe oluştur
+If ThisWorkbook.PivotCaches.Count > 0 Then
+
+    For i = 1 To ThisWorkbook.PivotCaches.Count
+    
+        If ThisWorkbook.PivotCaches(i).SourceData = tabloIsmi Then
+        
+        Set pc = ThisWorkbook.PivotCaches(i)
+    
+        Else
+        Set pc = ThisWorkbook.PivotCaches.Create( _
+             SourceType:=xlDatabase, _
+             SourceData:=tabloIsmi, _
+             Version:=8)
+            
+        End If
+    Next i
+Else
+Set pc = ThisWorkbook.PivotCaches.Create( _
+         SourceType:=xlDatabase, _
+         SourceData:=tabloIsmi, _
+         Version:=8)
+
+End If
+'pivot tablo oluştur
+Set pt = pc.CreatePivotTable( _
+        TableDestination:=gosterWsPt.range(gosterHucrePt), _
+        TableName:=grafikIsmi, _
+        DefaultVersion:=8)
+        
+pt.AddFields _
+    RowFields:=satirDeger, _
+    PageFields:=filtreDeger
+
+pt.AddDataField _
+    Field:=pt.PivotFields(veriDeger)
+    
+
+ActiveSheet.PivotTables(grafikIsmi).TableRange2.Cells(1, 1).Select
+
+Set sh = ActiveSheet.Shapes.AddChart
+
+
+sh.Top = pt.TableRange2.Top
+sh.Left = pt.TableRange2.Left + pt.TableRange2.Width
+sh.Height = 200
+
+sh.Name = grafikIsmi & " chart"
+Set ch = sh.chart
+ch.ChartStyle = 209
+
+
+titleText = grafikIsmi
+ch.ChartTitle.Text = titleText
+
+
+Set pt = Nothing
+Set ch = Nothing
+Set sh = Nothing
+
+
+End Function
+Function createPivotTableandCacheDuzeltme(tabloIsmi, grafikIsmi, gosterWsPt, gosterHucrePt, satirDeger, veriDeger, filtreDeger)
+
+Dim pc As PivotCache
+Dim pt As PivotTable
+Dim pf As PivotField
+Dim pi As PivotItem
+Dim sh As Shape
+Dim ch As chart
+Dim titleText As String
+
+
+'yok ise kaşe oluştur
+If ThisWorkbook.PivotCaches.Count > 0 Then
+
+    For i = 1 To ThisWorkbook.PivotCaches.Count
+    
+        If ThisWorkbook.PivotCaches(i).SourceData = tabloIsmi Then
+        
+        Set pc = ThisWorkbook.PivotCaches(i)
+    
+        Else
+        Set pc = ThisWorkbook.PivotCaches.Create( _
+             SourceType:=xlDatabase, _
+             SourceData:=tabloIsmi, _
+             Version:=8)
+            
+        End If
+    Next i
+Else
+Set pc = ThisWorkbook.PivotCaches.Create( _
+         SourceType:=xlDatabase, _
+         SourceData:=tabloIsmi, _
+         Version:=8)
+
+End If
+'pivot tablo oluştur
+Set pt = pc.CreatePivotTable( _
+        TableDestination:=gosterWsPt.range(gosterHucrePt), _
+        TableName:=grafikIsmi, _
+        DefaultVersion:=8)
+        
+pt.AddFields _
+    RowFields:=satirDeger, _
+    PageFields:=filtreDeger
+
+pt.AddDataField _
+    Field:=pt.PivotFields(veriDeger)
+    
+
+ActiveSheet.PivotTables(grafikIsmi).TableRange2.Cells(1, 1).Select
+
+Set sh = ActiveSheet.Shapes.AddChart
+
+
+sh.Top = pt.TableRange2.Top
+sh.Left = pt.TableRange2.Left
+sh.Height = 200
+
+sh.Name = grafikIsmi & " chart"
+Set ch = sh.chart
+ch.ChartStyle = 209
+
+
+titleText = grafikIsmi
+ch.ChartTitle.Text = titleText
+
+
+Set pt = Nothing
+Set ch = Nothing
+Set sh = Nothing
+
+
+End Function
+
+Function createPivotTableandCacheAimChart(tabloIsmi, grafikIsmi, gosterWsPt, gosterHucrePt, satirDeger, veriDeger1, veriDeger2, filtreDeger, visibleFiltre)
+
+Dim pc As PivotCache
+Dim pt As PivotTable
+Dim pf As PivotField
+Dim pi As PivotItem
+Dim sh As Shape
+Dim ch As chart
+Dim titleText As String
+Dim stable As PivotTable
+Dim pk
+
+'yok ise kaşe oluştur
+If ThisWorkbook.PivotCaches.Count > 0 Then
+
+    For i = 1 To ThisWorkbook.PivotCaches.Count
+    
+        If ThisWorkbook.PivotCaches(i).SourceData = tabloIsmi Then
+        
+        Set pc = ThisWorkbook.PivotCaches(i)
+    
+        Else
+        Set pc = ThisWorkbook.PivotCaches.Create( _
+             SourceType:=xlDatabase, _
+             SourceData:=tabloIsmi, _
+             Version:=8)
+            
+        End If
+    Next i
+Else
+Set pc = ThisWorkbook.PivotCaches.Create( _
+         SourceType:=xlDatabase, _
+         SourceData:=tabloIsmi, _
+         Version:=8)
+
+End If
+'pivot tablo oluştur
+Set pt = pc.CreatePivotTable( _
+        TableDestination:=gosterWsPt.range(gosterHucrePt), _
+        TableName:=grafikIsmi, _
+        DefaultVersion:=8)
+        
+pt.AddFields _
+    RowFields:=satirDeger, _
+    PageFields:=filtreDeger
+
+With pt.PivotFields(veriDeger1)
+    .Orientation = xlDataField
+    .Function = xlSum
+    .Position = 1
+    .NumberFormat = "#,##0"
+
+End With
+
+With pt.PivotFields(veriDeger2)
+    .Orientation = xlDataField
+    .Function = xlAverage
+    .Position = 2
+    .NumberFormat = "#,##0"
+
+End With
+
+Set pt = gosterWsPt.PivotTables(grafikIsmi)
+
+Set pf = pt.PivotFields(filtreDeger)
+
+For Each pi In pf.PivotItems
+    
+    If pi.Name <> visibleFiltre Then
+    pi.Visible = False
+    End If
+    
+Next pi
+pt.PivotFields(filtreDeger).PivotItems(visibleFiltre).Visible = True
+pt.PivotFields(filtreDeger).EnableMultiplePageItems = True
+
+
+pt.TableRange1.Columns.ColumnWidth = 10
+
+ActiveSheet.PivotTables(grafikIsmi).TableRange2.Cells(1, 1).Select
+
+Set sh = ActiveSheet.Shapes.AddChart
+genislik = pt.TableRange2.Width
+sh.Top = pt.TableRange2.Top
+sh.Left = pt.TableRange2.Left + 150
+sh.Height = 200
+genislik = 0
+
+sh.Name = grafikIsmi & " chart"
+Set ch = sh.chart
+ch.ChartStyle = 209
+
+
+Set pt = Nothing
+Set pf = Nothing
+Set ch = Nothing
+Set sh = Nothing
+
+
+End Function
+
+Function createPivotTableandCacheAimChartFilterless(tabloIsmi, grafikIsmi, gosterWsPt, gosterHucrePt, satirDeger, veriDeger1, veriDeger2)
+
+Dim pc As PivotCache
+Dim pt As PivotTable
+Dim pf As PivotField
+Dim pi As PivotItem
+Dim sh As Shape
+Dim ch As chart
+Dim titleText As String
+Dim stable As PivotTable
+Dim pk
+
+'yok ise kaşe oluştur
+If ThisWorkbook.PivotCaches.Count > 0 Then
+
+    For i = 1 To ThisWorkbook.PivotCaches.Count
+    
+        If ThisWorkbook.PivotCaches(i).SourceData = tabloIsmi Then
+        
+        Set pc = ThisWorkbook.PivotCaches(i)
+    
+        Else
+        Set pc = ThisWorkbook.PivotCaches.Create( _
+             SourceType:=xlDatabase, _
+             SourceData:=tabloIsmi, _
+             Version:=8)
+            
+        End If
+    Next i
+Else
+Set pc = ThisWorkbook.PivotCaches.Create( _
+         SourceType:=xlDatabase, _
+         SourceData:=tabloIsmi, _
+         Version:=8)
+
+End If
+'pivot tablo oluştur
+Set pt = pc.CreatePivotTable( _
+        TableDestination:=gosterWsPt.range(gosterHucrePt), _
+        TableName:=grafikIsmi, _
+        DefaultVersion:=8)
+        
+pt.AddFields _
+    RowFields:=satirDeger
+
+With pt.PivotFields(veriDeger1)
+    .Orientation = xlDataField
+    .Function = xlSum
+    .Position = 1
+    .NumberFormat = "#,##0"
+End With
+
+With pt.PivotFields(veriDeger2)
+    .Orientation = xlDataField
+    .Function = xlAverage
+    .Position = 2
+    .NumberFormat = "#,##0"
+End With
+
+ActiveSheet.PivotTables(grafikIsmi).TableRange2.Cells(1, 1).Select
+
+Set sh = ActiveSheet.Shapes.AddChart
+
+sh.Top = pt.TableRange2.Top
+sh.Left = pt.TableRange2.Left + pt.TableRange2.Width + 10
+sh.Height = 200
+
+sh.Name = grafikIsmi & " chart"
+Set ch = sh.chart
+ch.ChartStyle = 209
+
+Set pt = Nothing
+Set ch = Nothing
+Set sh = Nothing
+
+End Function
+
+Function filterResult(sayfa, pivotTablo, filtrelenecekAlan, filtreDegeri)
+   
+Dim range_to_filter As range
+
+Set range_to_filter = sayfa.range("B4:E15")
+
+range_to_filter.AutoFilter Field:=2, Criteria1:=Cells(5, 7).Value, Operator:=xlOr, Criteria2:=Cells(5, 8).Value
+
+End Sub
+
+Sub a()
+
+
+'aynı pivot table var ise sil
+For Each pt In gosterWsPt.PivotTables
+    If pt.Name = grafikIsmi Then
+       pt.TableRange2.Clear
+    End If
+Next pt
+    
+'aynı chart var ise sil
+For Each sh In gosterWsPt.Shapes
+    If sh.Name = grafikIsmi Then
+         sh.Delete
+    End If
+Next sh
+
+'SELECT TOP 10 FİLTRESİ
+  gosterWsPt.PivotTables(grafikIsmi).PivotFields(satirDeger). _
+        PivotFilters.Add2 Type:=xlTopCount, DataField:=ActiveSheet.PivotTables( _
+        grafikIsmi).PivotFields("Sum of " & veriDeger1), Value1:=10
+
+
+sh.Top = pt.TableRange2.Top
+sh.Left = pt.TableRange2.Left + pt.TableRange2.Width + 10
+sh.Height = 200
+
+sh.Name = grafikIsmi & " chart"
+Set ch = sh.chart
+ch.ChartStyle = 209
+
+
+titleText = grafikIsmi
+ch.ChartTitle.Text = titleText
+
+
+
+End Sub
+
+Function tabloVeChartSil(sayfa)
+Dim pvtt As PivotTable
+Dim shpe As Shape
+
+For Each pvtt In sayfa.PivotTables
+pvtt.TableRange2.Clear
+Next pvtt
+
+For Each shpe In sayfa.Shapes
+    If shpe.Type = msoChart Then
+    shpe.Delete
+    End If
+Next shpe
+
+End Function
+Function createPivotTableandCacheFiltered(tabloIsmi, grafikIsmi, gosterWsPt, gosterHucrePt, satirDeger, veriDeger1, filtreDeger, visibleFiltre)
+
+Dim pc As PivotCache
+Dim pt As PivotTable
+Dim pf As PivotField
+Dim pi As PivotItem
+Dim sh As Shape
+Dim ch As chart
+Dim titleText As String
+Dim stable As PivotTable
+Dim pk
+
+'yok ise kaşe oluştur
+If ThisWorkbook.PivotCaches.Count > 0 Then
+
+    For i = 1 To ThisWorkbook.PivotCaches.Count
+    
+        If ThisWorkbook.PivotCaches(i).SourceData = tabloIsmi Then
+        
+        Set pc = ThisWorkbook.PivotCaches(i)
+    
+        Else
+        Set pc = ThisWorkbook.PivotCaches.Create( _
+             SourceType:=xlDatabase, _
+             SourceData:=tabloIsmi, _
+             Version:=8)
+            
+        End If
+    Next i
+Else
+Set pc = ThisWorkbook.PivotCaches.Create( _
+         SourceType:=xlDatabase, _
+         SourceData:=tabloIsmi, _
+         Version:=8)
+
+End If
+'pivot tablo oluştur
+Set pt = pc.CreatePivotTable( _
+        TableDestination:=gosterWsPt.range(gosterHucrePt), _
+        TableName:=grafikIsmi, _
+        DefaultVersion:=8)
+        
+pt.AddFields _
+    RowFields:=satirDeger, _
+    PageFields:=filtreDeger
+
+With pt.PivotFields(veriDeger1)
+    .Orientation = xlDataField
+    .Function = xlSum
+    .Position = 1
+    .NumberFormat = "#,##0"
+End With
+
+ActiveSheet.PivotTables(grafikIsmi).TableRange2.Cells(1, 1).Select
+
+Set sh = ActiveSheet.Shapes.AddChart
+
+sh.Top = pt.TableRange2.Top
+sh.Left = pt.TableRange2.Left
+sh.Height = 200
+
+sh.Name = grafikIsmi & " chart"
+Set ch = sh.chart
+ch.ChartStyle = 209
+
+Set pt = gosterWsPt.PivotTables(grafikIsmi)
+
+Set pf = pt.PivotFields(filtreDeger)
+
+For Each pi In pf.PivotItems
+    
+    If pi.Name <> visibleFiltre Then
+    pi.Visible = False
+    End If
+    
+Next pi
+pt.PivotFields(filtreDeger).PivotItems(visibleFiltre).Visible = True
+pt.PivotFields(filtreDeger).EnableMultiplePageItems = True
+
+Set pt = Nothing
+Set pf = Nothing
+Set ch = Nothing
+Set sh = Nothing
+
+
+End Function
+
 
