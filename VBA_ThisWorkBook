@@ -1,0 +1,1587 @@
+Dim rs As ADODB.Recordset
+Dim cmd As New ADODB.Command
+Dim cmd1 As New ADODB.Command
+Dim prm1 As New ADODB.Parameter
+Dim prm As New ADODB.Parameter
+Dim conn As ADODB.Connection
+Dim wb As Workbook
+Dim ws As Worksheet
+Dim baslangic_tarih As Variant
+Dim bitis_tarih As Variant
+Dim sSQL As String
+Dim sSQL1 As String
+Dim sSQL2 As String
+Dim rs1 As ADODB.Recordset
+Dim rs2 As ADODB.Recordset
+Dim objList As ListObject
+Dim objList1 As ListObject
+Dim objList2 As ListObject
+Dim sira_no As Integer
+Dim strMsg As String
+Dim ptt As PivotTable
+Dim pt As PivotTable
+Dim pf As PivotField
+Dim pi As PivotItem
+Dim shp As Shape
+Dim yil As Date
+Dim mukerrerMi As Boolean
+Dim kumulatif_sifir As Integer
+Dim j As Integer
+Dim Table As ListObject
+Dim satir_say As Integer
+Dim paket0fiyat As range
+Dim cl As range
+Dim suntaTable As ListObject
+Dim ilaveIzin As Date
+Dim fazlaMesai As Date
+Dim nwDkalan As Date
+
+Public Sub gunluk()
+
+Cells(1, 2).Value = Format(Date, "yyyy")
+Cells(4, 2).Value = DateAdd("d", 1, Date)
+Cells(4, 2).Value = DateAdd("d", 1, Date)
+
+
+If Weekday(Now()) = vbSunday Then
+
+Cells(2, 2).Value = DateAdd("d", -2, Date)
+Cells(3, 2).Value = DateAdd("d", -1, Date)
+
+ElseIf Weekday(Now()) = vbSaturday Then
+
+Cells(2, 2).Value = DateAdd("d", -1, Date)
+Cells(3, 2).Value = Date
+
+Else
+
+Cells(2, 2).Value = DateAdd("d", -1, Date)
+Cells(3, 2).Value = Date
+
+End If
+
+Call paket_hesap
+
+End Sub
+
+Public Sub haftalik()
+
+If Weekday(Now()) <> vbMonday Then
+
+Cells(1, 2).Value = Format(Date, "yyyy")
+Cells(2, 2).Value = DateAdd("d", 1 - Weekday(Date, vbMonday), Date)
+Cells(3, 2).Value = Date
+Cells(4, 2).Value = DateAdd("d", 1, Date)
+
+Else
+Cells(1, 2).Value = Format(Date, "yyyy")
+Cells(2, 2).Value = DateAdd("d", -7, Date)
+Cells(3, 2).Value = DateAdd("d", -2, Date)
+Cells(4, 2).Value = DateAdd("d", 1, Date)
+End If
+
+
+Call paket_hesap
+End Sub
+
+
+Public Sub aylik()
+
+Cells(1, 2).Value = Format(Date, "yyyy")
+Cells(2, 2).Value = "01." & Format(Date, "mm.yyyy")
+    
+    If Date = Application.WorksheetFunction.EoMonth(Date, 0) Then
+        Cells(3, 2).Value = DateAdd("d", 1, Date)
+        Cells(4, 2).Value = DateAdd("d", 2, Date)
+    Else
+        Cells(3, 2).Value = Date
+        Cells(4, 2).Value = DateAdd("d", 1, Date)
+    End If
+
+Call paket_hesap
+End Sub
+
+
+Public Sub gecen_ay()
+Dim ayDuzeltme As Date
+Cells(1, 2).Value = Format(Date, "yyyy")
+ayDuzeltme = DateAdd("m", -1, Date)
+Cells(2, 2).Value = "01." & Format(ayDuzeltme, "mm.yyyy")
+Cells(3, 2).Value = DateAdd("d", 1, Application.WorksheetFunction.EoMonth(ayDuzeltme, 0))
+Cells(4, 2).Value = DateAdd("d", 2, Application.WorksheetFunction.EoMonth(ayDuzeltme, 0))
+
+Call paket_hesap
+End Sub
+
+Sub paket_hesap()
+
+ Application.ScreenUpdating = False
+
+Set wb = ThisWorkbook
+Set ws = wb.Sheets("Pak")
+Set ws1 = wb.Sheets("Sheet1")
+Set ws7 = wb.Sheets("Ciro_")
+Set ws8 = wb.Sheets("Maliyet")
+Set ws2 = wb.Sheets("Ham")
+
+Call tabloVeChartSil(ws1)
+Call tabloVeChartSil(ws7)
+Call tabloVeChartSil(ws8)
+
+
+Call tablo("SIL", "PAKET", ws, "A7")
+
+
+Set cmd = Nothing
+Set prm = Nothing
+Set conn = Nothing
+Set rs = Nothing
+strMsg = ""
+yil = Format(ws1.Cells(1, 2).Value & "-01-01", "yyyy")
+
+
+baslangic_tarih = Format(ws1.Cells(2, 2).Value, "yyyy-mm-dd")
+bitis_tarih = Format(ws1.Cells(3, 2).Value, "yyyy-mm-dd")
+maks_fiyat_tarih = Format(ws1.Cells(4, 2).Value, "yyyy-mm-dd")
+
+'hata kontrol
+If Format(ws1.Cells(2, 2).Value, "yyyy") <> yil Then
+strMsg = strMsg & vbCr & "-->başlangıç tarihi B1 Hücresi ile aynı yılda olmalıdır"
+End If
+
+If IsDate(ws1.Cells(2, 2).Value) <> True Then
+strMsg = strMsg & vbCr & "-->başlangıç tarih formatı hatalı"
+End If
+
+If IsDate(ws1.Cells(3, 2).Value) <> True Then
+strMsg = strMsg & vbCr & "-->bitiş tarih formatı hatalı"
+End If
+
+If IsDate(ws1.Cells(4, 2).Value) <> True Then
+strMsg = strMsg & vbCr & "-->maks fiyat tarih formatı hatalı"
+End If
+
+
+If Format(ws1.Cells(4, 2).Value, "yyyy") < yil Then
+strMsg = strMsg & vbCr & "-->maks fiyat tarihi B1 Hücresinden düşük yılda olamaz"
+End If
+
+
+If baslangic_tarih >= bitis_tarih Then
+strMsg = strMsg & vbCr & "-->başlangıç tarihi bitiş tarihine eşit" & vbCr & "veya bitiş tarihinden büyük olamaz"
+End If
+
+If baslangic_tarih >= maks_fiyat_tarih Then
+strMsg = strMsg & vbCr & "-->başlangıç tarihi maksimum fiyat tarihine eşit" & vbCr & "veya maksimum fiyat tarihinden büyük olamaz"
+End If
+
+If bitis_tarih >= maks_fiyat_tarih Then
+strMsg = strMsg & vbCr & "-->bitiş tarihi maksimum fiyat tarihine eşit" & vbCr & "veya maksimum fiyat tarihinden büyük olamaz"
+End If
+
+If strMsg <> "" Then
+MsgBox strMsg, vbCritical, "Tarih Hatası"
+Exit Sub
+End If
+
+
+'uretson_tarih format
+ws.range("j:j").NumberFormat = "dd.mm.yyyy"
+
+
+On Error GoTo ErrHandler
+
+'veri bağlantısı
+Set conn = GetNewConnection
+conn.CommandTimeout = 360
+conn.CursorLocation = adUseServer 'Must use Server side cursor.
+
+    ' Automatically fill in parameter info from stored procedure.
+Set cmd.ActiveConnection = conn
+
+With cmd
+.CommandType = adCmdStoredProc
+.CommandText = "kkCiroPaket"
+.CommandTimeout = 360
+End With
+
+
+'Parameter 0 is the setting for the stored procedure Output
+' parameter.
+
+Set prm = cmd.CreateParameter(baslangic_tarih, adDate, _
+adParamInput)
+cmd.Parameters.Append prm
+cmd.Parameters(baslangic_tarih).Value = baslangic_tarih
+
+'Parameter 1
+
+Set prm = cmd.CreateParameter(bitis_tarih, adDate, _
+adParamInput)
+cmd.Parameters.Append prm
+cmd.Parameters(bitis_tarih).Value = bitis_tarih
+
+Set rs = cmd.Execute
+
+For iCols = 0 To rs.Fields.Count - 1
+ ws.Cells(7, iCols + 1).Value = rs.Fields(iCols).Name
+Next
+range(Cells(7, 1), _
+ws.Cells(7, rs.Fields.Count)).Font.Bold = True
+
+ws.range("a8").CopyFromRecordset rs
+Call tablo("OLUSTUR", "PAKET", ws, "A7")
+
+
+GoTo Shutdown
+
+ErrHandler:
+Call ErrHandler(conn)
+Resume Next
+
+Shutdown:
+Set cmd = Nothing
+Set prm = Nothing
+Set conn = Nothing
+
+ws2.Select
+ws2.Activate
+
+Call Ham_Hesapla
+
+End Sub
+
+Public Sub Ham_Hesapla()
+
+Set wb = ThisWorkbook
+Set ws2 = wb.Sheets("Ham")
+Set ws1 = wb.Sheets("Sheet1")
+Set ws = wb.Sheets("Pak")
+Set ws5 = wb.Sheets("Sunta")
+
+Call tablo("SIL", "HAM", ws2, "a7")
+
+maksFiyatTarih = Format(ws1.Cells(4, 2).Value, "yyyy-mm-dd")
+baslangicTarih = Format(ws1.Cells(2, 2).Value, "yyyy-mm-dd")
+bitisTarih = Format(ws1.Cells(3, 2).Value, "yyyy-mm-dd")
+
+Set conn = Nothing
+Set rs = Nothing
+'veri bağlantısı
+Set conn = GetNewConnection
+conn.CommandTimeout = 360
+conn.CursorLocation = adUseServer 'Must use Server side cursor.
+
+    ' Automatically fill in parameter info from stored procedure.
+Set cmd.ActiveConnection = conn
+
+With cmd
+.CommandType = adCmdStoredProc
+.CommandText = "kkpCiroMaliyetHesaplaHam"
+.CommandTimeout = 360
+End With
+
+
+'Parameter 0 is the setting for the stored procedure Output
+' parameter.
+
+Set prm = cmd.CreateParameter(maksFiyatTarih, adDate, _
+adParamInput)
+cmd.Parameters.Append prm
+cmd.Parameters(maksFiyatTarih).Value = maksFiyatTarih
+
+'Parameter 1
+
+Set prm = cmd.CreateParameter(baslangicTarih, adDate, _
+adParamInput)
+cmd.Parameters.Append prm
+cmd.Parameters(baslangicTarih).Value = baslangicTarih
+
+'Parameter 2
+
+Set prm = cmd.CreateParameter(bitisTarih, adDate, _
+adParamInput)
+cmd.Parameters.Append prm
+cmd.Parameters(bitisTarih).Value = bitisTarih
+
+
+Set rs = cmd.Execute
+
+For iCols = 0 To rs.Fields.Count - 1
+ ws2.Cells(7, iCols + 1).Value = rs.Fields(iCols).Name
+Next
+range(Cells(7, 1), _
+ws2.Cells(7, rs.Fields.Count)).Font.Bold = True
+
+ws2.range("a8").CopyFromRecordset rs
+
+If ws2.range("A8") <> "" And ws2.range("d8") <> "" Then
+
+Call tablo("OLUSTUR", "HAM", ws2, "a7")
+
+ElseIf ws2.range("A8") = "" And ws2.range("d8") = "HATA" Then
+    
+    i = 8
+    Do While ws2.Cells(i, 1).Value = ""
+    
+    Cells(i, 1).Value = "hata"
+    
+    i = i + 1
+    Loop
+
+Call tablo("OLUSTUR", "HAM", ws2, "a7")
+
+End If
+
+Set conn = Nothing
+Set rs = Nothing
+
+ws1.range("I2:P6").NumberFormat = "General"
+ws.range("I2:I10000").NumberFormat = "dd/mm/yyyy"
+
+ws5.Select
+ws5.Activate
+
+Call Sunta
+
+End Sub
+Public Sub Sunta()
+
+Set wb = ThisWorkbook
+Set ws2 = wb.Sheets("Ham")
+Set ws1 = wb.Sheets("Sheet1")
+Set ws = wb.Sheets("Pak")
+Set ws5 = wb.Sheets("Sunta")
+
+On Error Resume Next
+Call tablo("SIL", "SUNTA", ws5, "A7")
+ws5.range("A7:C" & satir_sayisi(ws5, "c7")).ClearContents
+
+Set cmd = Nothing
+Set prm = Nothing
+Set conn = Nothing
+Set rs = Nothing
+
+baslangic_tarih = Format(ws1.Cells(2, 2).Value, "yyyy-mm-dd")
+bitis_tarih = Format(ws1.Cells(3, 2).Value, "yyyy-mm-dd")
+
+sSQL = "select sum(kesilenAdet) as [kesilen plaka],tarih as [kesim tarih],hedefAdet as [kesim hedef] from kktPlakaHedef where tarih>='" & baslangic_tarih & "' " & _
+      " and tarih < '" & bitis_tarih & "' group by tarih,hedefAdet"
+
+Call veriGetir(sSQL, 7, "A8", ws5)
+
+On Error Resume Next
+Call tablo("OLUSTUR", "SUNTA", ws5, "A7")
+
+GoTo Shutdown
+
+ErrHandler:
+Call ErrHandler(conn)
+Resume Next
+
+Shutdown:
+Set cmd = Nothing
+Set prm = Nothing
+Set conn = Nothing
+Set rs = Nothing8
+
+
+
+Call Dosenmis
+
+End Sub
+
+Public Sub Dosenmis()
+
+Set wb = ThisWorkbook
+Set ws2 = wb.Sheets("Ham")
+Set ws1 = wb.Sheets("Sheet1")
+Set ws = wb.Sheets("Pak")
+Set ws10 = wb.Sheets("Dosenmis")
+ws10.Select
+ws10.Activate
+Call tablo("SIL", "Dosenmis", ws10, "A7")
+Call tablo("SIL", "dosenmisTarih", ws10, "L7")
+ws10.range("A7:Z" & satir_sayisi(ws10, "c7")).ClearContents
+
+Set cmd = Nothing
+Set prm = Nothing
+Set conn = Nothing
+Set rs = Nothing
+
+baslangic_tarih = Format(ws1.Cells(2, 2).Value, "yyyy-mm-dd")
+bitis_tarih = Format(ws1.Cells(3, 2).Value, "yyyy-mm-dd")
+        
+sSQL = "with dosenmisSay as (SELECT TEPEMAM,count(a.stok_kodu) as dosenmisSay from tblisemri a" & _
+       " left join tblstsabit b on a.stok_kodu=b.stok_kodu where stok_adi like 'dosenmis%' group by tepemam)" & _
+       " SELECT c.TEPEMAM,d.STOK_ADI,a.URETSON_MAMUL,b.STOK_ADI,URETSON_TARIH,cast(uretson_miktar as int) DOSEME_MIKTAR,isnull(e.KULL8N,0) as BrmSURE," & _
+       " dosenmisSay,cast ((cast(uretson_miktar as float) * isnull(e.KULL8N,0)) / isnull(f.dosenmisSay,1)  as float) as Harcanan_Sure" & _
+       " FROM TBLSTOKURS a " & _
+       " LEFT JOIN TBLSTSABIT b ON a.URETSON_MAMUL=b.STOK_KODU" & _
+       " LEFT JOIN TBLISEMRI c ON a.uretson_mamul=c.stok_kodu and a.uretson_sipno=c.isemrino" & _
+       " LEFT JOIN TBLSTSABIT d ON c.tepemam=d.STOK_KODU" & _
+       " left join dosenmisSay f on c.tepemam=f.tepemam" & _
+       " left join TBLSTSABITEK e on substring(c.tepemam,1,11) = e.stok_kodu" & _
+       " where uretson_tarih>='" & baslangic_tarih & "' and uretson_tarih<'" & bitis_tarih & "' and b.stok_adi like 'DOSENMIS%' "
+
+Call veriGetir(sSQL, 7, "A8", ws10)
+
+Call tablo("OLUSTUR", "Dosenmis", ws10, "A7")
+'
+'
+'Set cmd = Nothing
+'Set prm = Nothing
+'Set conn = Nothing
+'Set rs = Nothing
+'
+''veri bağlantısı
+'Set conn = GetNewConnection
+'
+'conn.CursorLocation = adUseServer 'Must use Server side cursor.
+'
+'    ' Automatically fill in parameter info from stored procedure.
+'Set cmd.ActiveConnection = conn
+'
+'With cmd
+'.CommandType = adCmdStoredProc
+'.CommandText = "kkpDosemeSureBelirliTarih"
+'End With
+'
+'
+'
+''Parameter 0 is the setting for the stored procedure Output
+'' parameter.
+'
+'Set prm = cmd.CreateParameter(baslangic_tarih, adDate, _
+'adParamInput)
+'cmd.Parameters.Append prm
+'cmd.Parameters(baslangic_tarih).Value = baslangic_tarih
+'
+''Parameter 1
+'
+'Set prm = cmd.CreateParameter(bitis_tarih, adDate, _
+'adParamInput)
+'cmd.Parameters.Append prm
+'cmd.Parameters(bitis_tarih).Value = bitis_tarih
+'
+'Set rs = cmd.Execute
+'
+'For iCols = 0 To rs.Fields.Count - 1
+' ws10.Cells(7, iCols + 12).Value = rs.Fields(iCols).Name
+'Next
+'ws10.range(Cells(7, 12), _
+'ws10.Cells(7, rs.Fields.Count)).Font.Bold = True
+'
+'ws10.range("L8").CopyFromRecordset rs
+'Call tablo("OLUSTUR", "dosenmisTarih", ws10, "L7")
+
+
+GoTo Shutdown
+
+ErrHandler:
+Call ErrHandler(conn)
+Resume Next
+
+Shutdown:
+Set cmd = Nothing
+Set prm = Nothing
+Set conn = Nothing
+Set rs = Nothing
+
+
+Call veriGiris
+
+End Sub
+
+Public Sub veriGiris()
+
+Set wb = ThisWorkbook
+Set ws1 = wb.Sheets("Sheet1")
+Set ws = wb.Sheets("Pak")
+Set ws6 = wb.Sheets("veri_giris")
+    Set ws5 = wb.Sheets("Sunta")
+Set ws10 = wb.Sheets("Dosenmis")
+
+ 
+Dim nwDbaslangic As Date
+Dim nwDbitis As Date
+Dim toplamCalismaGunu As Integer
+Dim nwDsonrakiGun As Date
+Dim nwDbitisEndOfMonth As Date
+
+ nwDbaslangic = ws1.Cells(2, 2).Value
+ nwDbitis = ws1.Cells(3, 2).Value
+ duzeltmeSonGun = DateAdd("d", -1, nwDbitis)
+ nwDbitisEndOfMonth = Application.WorksheetFunction.EoMonth(duzeltmeSonGun, 0)
+ 
+ ws6.Select
+  ws6.Activate
+
+ ws6.range("j2:r" & satir_sayisi(ws6, "o1")).ClearContents
+
+'toplam Hedef Ciro
+
+farkAy = DateDiff("m", nwDbaslangic, duzeltmeSonGun)
+
+
+hedefIlkAy = Format(nwDbaslangic, "yyyy.mm")
+hedefSonAy = Format(duzeltmeSonGun, "yyyy.mm")
+
+hedefCiroModuler = 0
+hedefCiroDosemeli = 0
+hedefCiroToplam = 0
+hedefPaketModuler = 0
+hedefPaketDosemeli = 0
+hedefPaketToplam = 0
+
+For i = 3 To satir_sayisi(ws6, "a3") + 2
+    
+    'başlangıç ay hedef ciroları ve paketleri bul
+    If ws6.Cells(i, 1).Value = hedefIlkAy Then
+    
+        hedefCiroModuler = hedefCiroModuler + ws6.Cells(i, 2).Value
+        hedefCiroDosemeli = hedefCiroDosemeli + ws6.Cells(i, 3).Value
+        hedefCiroToplam = hedefCiroToplam + ws6.Cells(i, 2).Value + ws6.Cells(i, 3).Value
+        
+        hedefPaketModuler = hedefPaketModuler + ws6.Cells(i, 4).Value
+        hedefPaketDosemeli = hedefPaketDosemeli + ws6.Cells(i, 5).Value
+        hedefPaketToplam = hedefPaketToplam + ws6.Cells(i, 4).Value + ws6.Cells(i, 5).Value
+            
+        ilkAyHedefCiroModuler = ws6.Cells(i, 2).Value
+        ilkAyHedefCiroDosemeli = ws6.Cells(i, 3).Value
+        ilkAyHedefPaketModuler = ws6.Cells(i, 4).Value
+        ilkAyHedefPaketDosemeli = ws6.Cells(i, 5).Value
+        
+            
+            'varsa müteakip ayların hedef cirolarını ve paketlerini ekle
+            For j = 1 To farkAy
+                 
+            hedefCiroModuler = hedefCiroModuler + ws6.Cells(i + j, 2).Value
+            hedefCiroDosemeli = hedefCiroDosemeli + ws6.Cells(i + j, 3).Value
+            hedefCiroToplam = hedefCiroToplam + ws6.Cells(i + j, 2).Value + ws6.Cells(i + j, 3).Value
+            
+            hedefPaketModuler = hedefPaketModuler + ws6.Cells(i, 4).Value
+            hedefPaketDosemeli = hedefPaketDosemeli + ws6.Cells(i, 5).Value
+            hedefPaketToplam = hedefPaketToplam + ws6.Cells(i, 4).Value + ws6.Cells(i, 5).Value
+                
+            Next j
+    
+    End If
+    
+Next i
+
+' toplam çalışma günü hesapla
+'cumartesi pazar kontrol
+nwDsonrakiGun = nwDbaslangic
+i = 2
+Do While nwDsonrakiGun <> nwDbitis
+    
+    If Weekday(nwDsonrakiGun) <> vbSaturday And Weekday(nwDsonrakiGun) <> vbSunday Then
+    
+    ws6.Cells(i, 10).Value = nwDsonrakiGun
+    
+    
+         'hedef ciro ekle
+        hedefCiroBul = Format(nwDsonrakiGun, "yyyy.mm")
+    
+            For j = 3 To satir_sayisi(ws6, "a3") + 2
+            
+                If hedefCiroBul = ws6.Cells(j, 1).Value Then
+                    
+                    ws6.Cells(i, 11).Value = ws6.Cells(j, 2).Value
+                    ws6.Cells(i, 12).Value = ws6.Cells(j, 3).Value
+                
+                End If
+            Next j
+    
+        'hedef ciro boş ise standart hedef ekle
+        
+        If ws6.Cells(i, 11).Value = "" Then
+            ws6.Cells(i, 11).Value = 250000
+        End If
+        If ws6.Cells(i, 12).Value = "" Then
+            ws6.Cells(i, 12).Value = 250000
+        End If
+        
+    i = i + 1
+    End If
+    
+    nwDsonrakiGun = DateAdd("d", 1, nwDsonrakiGun)
+    
+Loop
+
+'ilave izinli tarih kontrol
+For i = 2 To satir_sayisi(ws6, "g1")
+
+
+ilaveIzin = ws6.Cells(i, 7).Value
+
+    'ilave izin tarih aralıklarında mı
+    If ilaveIzin >= nwDbaslangic And ilaveIzin < nwDbitis Then
+    
+        baslangicSatirSayisi = satir_sayisi(ws6, "j1")
+        For j = 2 To baslangicSatirSayisi
+    
+            If ws6.Cells(j, 10).Value = ilaveIzin Then
+                ws6.range("J" & j & ":L" & j).ClearContents
+                ws6.range("J" & j + 1, "L" & baslangicSatirSayisi).Cut ws6.range("J" & j, "L" & baslangicSatirSayisi)
+                baslangicSatirSayisi = baslangicSatirSayisi - 1
+            End If
+        Next j
+    End If
+Next i
+
+ws6.range("j2:L" & satir_sayisi(ws6, "j1")).Copy ws6.range("M2")
+
+' ayın kalan mesai günlerini ekle
+nwDkalan = duzeltmeSonGun
+satir_sayisi_aylik_kalan = satir_sayisi(ws6, "M1")
+Do While nwDkalan <= nwDbitisEndOfMonth
+
+    If Weekday(nwDkalan) <> vbSaturday And Weekday(nwDkalan) <> vbSunday Then
+    ws6.range("M" & satir_sayisi_aylik_kalan + 1).Value = nwDkalan
+                
+     'hedef ciro ekle
+        hedefCiroBul = Format(nwDkalan, "yyyy.mm")
+    
+            For j = 3 To satir_sayisi(ws6, "a3") + 2
+            
+                If hedefCiroBul = ws6.Cells(j, 1).Value Then
+                    
+                    ws6.Cells(satir_sayisi_aylik_kalan + 1, 14).Value = ws6.Cells(j, 2).Value
+                    ws6.Cells(satir_sayisi_aylik_kalan + 1, 15).Value = ws6.Cells(j, 3).Value
+                
+                End If
+            Next j
+    
+        'hedef ciro boş ise standart hedef ekle
+        
+        If ws6.Cells(satir_sayisi_aylik_kalan + 1, 14).Value = "" Then
+            ws6.Cells(satir_sayisi_aylik_kalan + 1, 14).Value = 250000
+        End If
+        If ws6.Cells(satir_sayisi_aylik_kalan + 1, 15).Value = "" Then
+            ws6.Cells(satir_sayisi_aylik_kalan + 1, 15).Value = 250000
+        End If
+    
+    satir_sayisi_aylik_kalan = satir_sayisi_aylik_kalan + 1
+    
+    End If
+    
+    nwDkalan = DateAdd("d", 1, nwDkalan)
+    
+Loop
+
+' ilk ayın önceki mesai günlerini ekle
+ayinIlkGunu = DateSerial(Year(nwDbaslangic), Month(nwDbaslangic), 1)
+satir_sayisi_onceki_gun = 1
+nwDonceki = ayinIlkGunu
+Do While nwDonceki < nwDbaslangic
+
+    If Weekday(nwDonceki) <> vbSaturday And Weekday(nwDonceki) <> vbSunday Then
+    ws6.range("p" & satir_sayisi_onceki_gun + 1).Value = nwDonceki
+        
+     'hedef ciro ekle
+        hedefCiroBul = Format(nwDonceki, "yyyy.mm")
+    
+            For j = 3 To satir_sayisi(ws6, "a3") + 2
+            
+                If hedefCiroBul = ws6.Cells(j, 1).Value Then
+                    
+                    ws6.Cells(satir_sayisi_onceki_gun + 1, 17).Value = ws6.Cells(j, 2).Value
+                    ws6.Cells(satir_sayisi_onceki_gun + 1, 18).Value = ws6.Cells(j, 3).Value
+                
+                End If
+            Next j
+    
+        'hedef ciro boş ise standart hedef ekle
+        
+        If ws6.Cells(satir_sayisi_onceki_gun + 1, 17).Value = "" Then
+            ws6.Cells(satir_sayisi_onceki_gun + 1, 17).Value = 250000
+        End If
+        If ws6.Cells(satir_sayisi_onceki_gun + 1, 18).Value = "" Then
+            ws6.Cells(satir_sayisi_onceki_gun + 1, 18).Value = 250000
+        End If
+    
+    satir_sayisi_onceki_gun = satir_sayisi_onceki_gun + 1
+    
+    End If
+    
+    nwDonceki = DateAdd("d", 1, nwDonceki)
+    
+Loop
+
+'çalışma gün sayıları
+toplam_gun_say = satir_sayisi(ws6, "m2")
+
+ws1.range("b14").Value = toplam_gun_say
+ws1.range("b45").Value = toplam_gun_say
+
+su_ana_kadar_gun_say = satir_sayisi(ws6, "j2")
+ws1.range("b20").Value = su_ana_kadar_gun_say
+ws1.range("b51").Value = su_ana_kadar_gun_say
+
+kullanilmayan_mesai_gunleri = satir_sayisi_onceki_gun - 1
+
+ilkAy = Format(range("m2").Value, "mm")
+l = 2
+
+    Do While ilkAy = Format(range("m" & l).Value, "mm")
+    l = l + 1
+    Loop
+    
+kullanilan_mesai_gunleri = l - 2
+toplam_mesai_gunleri = kullanilan_mesai_gunleri + kullanilmayan_mesai_gunleri
+cikarilacakCiroModuler = ilkAyHedefCiroModuler * (kullanilmayan_mesai_gunleri / toplam_mesai_gunleri)
+cikarilacakCiroDosemeli = ilkAyHedefCiroDosemeli * (kullanilmayan_mesai_gunleri / toplam_mesai_gunleri)
+cikarilacakPaketModuler = ilkAyHedefPaketModuler * (kullanilmayan_mesai_gunleri / toplam_mesai_gunleri)
+cikarilacakPaketDosemeli = ilkAyHedefPaketModuler * (kullanilmayan_mesai_gunleri / toplam_mesai_gunleri)
+
+'hedefleri ciro tablosunda ilgili hücreye yazdır
+ws1.range("b12").Value = hedefCiroModuler - cikarilacakCiroModuler
+ws1.range("b43").Value = hedefCiroDosemeli - cikarilacakCiroDosemeli
+ws1.range("b13").Value = hedefPaketModuler - cikarilacakPaketModuler
+ws1.range("b44").Value = hedefPaketDosemeli - cikarilacakPaketDosemeli
+
+
+'toplam-moduler,dosemeli ciro
+Set Table = ws.ListObjects("PAKET")
+
+Worksheets("Pak").ListObjects("PAKET").AutoFilter.showalldata
+
+toplamCiro = WorksheetFunction.Sum(Table.DataBodyRange.Columns(12))
+toplamPaket = WorksheetFunction.Sum(Table.DataBodyRange.Columns(9))
+
+Set paketToplam = ws.range("I8:I" & satir_sayisi(ws, "D7") + 6)
+Set ciroToplam = ws.range("L8:L" & satir_sayisi(ws, "D7") + 6)
+
+
+ws.ListObjects("PAKET").range.AutoFilter Field:=4, Criteria1:="MODULER"
+
+toplamModulerPaket = WorksheetFunction.Sum(paketToplam.SpecialCells(xlCellTypeVisible))
+toplamModulerCiro = WorksheetFunction.Sum(ciroToplam.SpecialCells(xlCellTypeVisible))
+
+ws1.range("B21").Value = toplamModulerCiro
+ws1.range("B22").Value = toplamModulerPaket
+
+Worksheets("Pak").ListObjects("PAKET").AutoFilter.showalldata
+ws.ListObjects("PAKET").range.AutoFilter Field:=4, Criteria1:="DOSEMELI"
+
+toplamDosemeliCiro = WorksheetFunction.Sum(ciroToplam.SpecialCells(xlCellTypeVisible))
+toplamDosemeliPaket = WorksheetFunction.Sum(paketToplam.SpecialCells(xlCellTypeVisible))
+
+ws1.range("B52").Value = toplamDosemeliCiro
+ws1.range("B53").Value = toplamDosemeliPaket
+
+Worksheets("Pak").ListObjects("PAKET").AutoFilter.showalldata
+
+
+''toplam-moduler-dosemeli maliyet
+'
+'Worksheets("Ham").ListObjects("HAM").AutoFilter.showalldata
+'
+'
+'Set Table = ws2.ListObjects("HAM")
+'
+'toplamMaliyet = WorksheetFunction.Sum(Table.DataBodyRange.Columns(10))
+'toplamHam = satir_sayisi(ws2, "g8")
+'
+'Set hamToplamMaliyet = ws2.range("J8:J" & satir_sayisi(ws2, "G7"))
+'
+'ws2.ListObjects("HAM").range.AutoFilter Field:=4, Criteria1:="DOSEMELI"
+'
+'toplamDosemeliMaliyet = WorksheetFunction.Sum(hamToplamMaliyet.SpecialCells(xlCellTypeVisible))
+'
+'Worksheets("Ham").ListObjects("HAM").AutoFilter.showalldata
+'
+'ws2.ListObjects("HAM").range.AutoFilter Field:=4, Criteria1:="MODULER"
+'
+'toplamModulerMaliyet = WorksheetFunction.Sum(hamToplamMaliyet.SpecialCells(xlCellTypeVisible))
+'
+'
+'Worksheets("Ham").ListObjects("HAM").AutoFilter.showalldata
+'
+'ws1.range("f1").Value = toplamModulerPaket
+'ws1.range("f2").Value = modulerPaketHedef
+'
+'ws1.range("h2").Value = toplamCiro
+'ws1.range("I2").Value = toplamModulerCiro
+'ws1.range("J2").Value = toplamDosemeliCiro
+'ws1.range("H5").Value = toplamMaliyet
+'ws1.range("I5").Value = toplamModulerMaliyet
+'ws1.range("J5").Value = toplamDosemeliMaliyet
+'
+'ws1.range("m1").Value = toplamPaket
+'ws1.range("m2").Value = toplamModulerPaket
+'ws1.range("m3").Value = toplamDosemeliPaket
+'
+'ws1.range("p1").Value = toplamPaket
+'ws1.range("p2").Value = toplamHam
+'
+'ws1.range("I7").NumberFormat = "0.0%"
+'
+'ws1.range("I2").NumberFormat = "[$$-en-US]#,##0"
+'ws1.range("J2").NumberFormat = "[$$-en-US]#,##0"
+'ws1.range("I5").NumberFormat = "[$$-en-US]#,##0"
+'ws1.range("J5").NumberFormat = "[$$-en-US]#,##0"
+'
+'
+'Worksheets("Ham").ListObjects("HAM").AutoFilter.showalldata
+'
+'
+
+
+
+'fazla mesai kontrol
+
+
+'For i = 2 To satir_sayisi(ws6, "E1")
+
+   ' fazlaMesai = ws6.Cells(i, 5).Value
+    
+   ' If fazlaMesai >= nwDbaslangic And fazlaMesai < nwDbitis Then
+    
+   '     ws6.Cells(baslangicSatirSayisi + 1, 10).Value = fazlaMesai
+    '    baslangicSatirSayisi = baslangicSatirSayisi + 1
+    
+   ' End If
+'Next i
+   
+  'ws.range("I" & satir_sayisi(ws, "I1") + 1, "I" & satir_sayisi(ws, "I1") + satir_sayisi(ws6, "AF1"))
+'ws.Select
+'ws.Activate
+
+
+'verimlilik hesap
+toplam_sure_mesai = su_ana_kadar_gun_say * 540
+ws1.range("B75").Value = toplam_sure_mesai
+
+Set sureToplam = ws10.range("I8:I" & satir_sayisi(ws10, "I7") + 6)
+toplam_sure_doseme = WorksheetFunction.Sum(sureToplam.SpecialCells(xlCellTypeVisible)) / 8 'döşemeci sayısı
+ws1.range("B76").Value = toplam_sure_doseme
+
+
+Call grafikGoster
+
+End Sub
+Public Sub grafikGoster()
+Set wb = ThisWorkbook
+Set ws2 = wb.Sheets("Ham")
+Set ws1 = wb.Sheets("Sheet1")
+Set ws = wb.Sheets("Pak")
+Set ws5 = wb.Sheets("Sunta")
+Set ws6 = wb.Sheets("veri_giris")
+Set ws7 = wb.Sheets("Ciro_")
+Set ws8 = wb.Sheets("Maliyet")
+Set ws10 = wb.Sheets("Dosenmis")
+
+Call tabloVeChartSil(ws7)
+Call tabloVeChartSil(ws8)
+
+gunSay = satir_sayisi(ws6, "m1") - 1
+
+ws7.Select
+ws7.Activate
+
+Call createPivotTableandCacheAimChart("PAKET", "MODULER_PAKET_HEDEF", ws7, "A3", "URETSON_TARIH", "PAKET_MIKTAR", "HEDEF_PAKET_MODULER", "FABRIKA", "MODULER")
+
+Call createPivotTableandCacheAimChart("PAKET", "DOSEMELI_PAKET_HEDEF", ws7, "m3", "URETSON_TARIH", "PAKET_MIKTAR", "Hedef_Paket_Dosemeli", "FABRIKA", "DOSEMELI")
+
+Call createPivotTableandCacheFiltered("PAKET", "MODULER_CIRO", ws7, "z3", "URETSON_TARIH", "Toplam_Fiyat", "FABRIKA", "MODULER")
+
+Call createPivotTableandCacheFiltered("PAKET", "DOSEMELI_CIRO", ws7, "Ak3", "URETSON_TARIH", "Toplam_Fiyat", "FABRIKA", "DOSEMELI")
+
+Call createPivotTableandCacheDuzeltme("PAKET", "MUSTERI_CIRO", ws7, "aw3", "MUSTERI", "Toplam_Fiyat", "FABRIKA")
+
+'toplam paketleri güne dağıt modüler
+For i = 4 To satir_sayisi(ws7, "a4") + 2
+    ws7.Cells(i, 4).Value = ws7.Cells(i, 3).Value / gunSay
+Next i
+'toplam paketleri güne dağıt döşemeli
+For i = 4 To satir_sayisi(ws7, "m4") + 2
+    ws7.Cells(i, 16).Value = ws7.Cells(i, 15).Value / gunSay
+Next i
+
+
+
+ws8.Select
+ws8.Activate
+
+Call createPivotTableandCache("HAM", "URETIM_TARIH_MALIYET", ws8, "A3", "uretim_tarihi", "toplamFiyat", "FABRIKA")
+
+Call createPivotTableandCache("HAM", "MUSTERI_MALIYET", ws8, "m3", "MUSTERI", "toplamFiyat", "FABRIKA")
+
+Call createPivotTableandCache("HAM", "KOD_1_MALIYET", ws8, "z3", "kod_" & 1, "toplamFiyat", "FABRIKA")
+
+Call createPivotTableandCache("Dosenmis", "DOSEME_SURE", ws8, "ak3", "URETSON_TARIH", "Harcanan_Sure", "TEPEMAM")
+
+For i = 4 To satir_sayisi(ws8, "ak4") + 2
+    range("aj" & i).Value = range("al" & i).Value / 540 / 8
+    range("ai" & i).Value = 540 * 8
+Next i
+    
+    
+Call main_chart
+
+      
+End Sub
+Public Sub main_chart()
+
+Set wb = ThisWorkbook
+Set ws1 = wb.Sheets("Sheet1")
+Set ws = wb.Sheets("Pak")
+Set ws5 = wb.Sheets("Sunta")
+Set ws6 = wb.Sheets("veri_giris")
+Set ws7 = wb.Sheets("Ciro_")
+Set ws8 = wb.Sheets("Günlük_Plaka_Hedef")
+Set ws9 = wb.Sheets("Maliyet")
+
+ws1.Select
+ws1.Activate
+
+Call tabloVeChartSil(ws1)
+  
+  'moduler ciro
+  ActiveSheet.Shapes.AddChart2(209, xlColumnClustered).Select
+  
+  'grafiğin mevkisi
+  Selection.Top = 130
+    Selection.Left = 300
+    Selection.Height = 400
+    Selection.Width = 800
+  
+  'isim belirle
+     ws1.ChartObjects(1).Name = ("Moduler Paket")
+    ActiveSheet.ChartObjects("Moduler Paket").Activate
+        ActiveChart.ChartTitle.Text = "Modüler Ciro"
+
+    'arka plan rengi
+       ActiveChart.PlotArea.Select
+    With Selection.Format.Fill
+        .Visible = msoTrue
+        .ForeColor.ObjectThemeColor = msoThemeColorBackground1
+        .ForeColor.TintAndShade = 0
+        .ForeColor.Brightness = -0.349999994
+        .Transparency = 0
+        .Solid
+    End With
+     
+    'verileri ekle
+    ActiveChart.SeriesCollection.NewSeries
+    ActiveChart.FullSeriesCollection(1).Name = "=""Toplam Ciro"""
+    ActiveChart.FullSeriesCollection(1).Values = "=Ciro_!$aa$4:$aa" & satir_sayisi(ws7, "aa4") + 2
+    ActiveChart.FullSeriesCollection(1).XValues = "=Ciro_!$z$4:$z" & satir_sayisi(ws7, "Z4") + 2
+    ActiveChart.SeriesCollection.NewSeries
+    ActiveChart.FullSeriesCollection(2).Name = "=""Toplam Paket"""
+    ActiveChart.FullSeriesCollection(2).Values = "=Ciro_!$b$4:$b" & satir_sayisi(ws7, "b4") + 2
+    ActiveChart.FullSeriesCollection(2).XValues = "=Ciro_!$a$4:$a" & satir_sayisi(ws7, "a4") + 2
+    ActiveChart.SeriesCollection.NewSeries
+    ActiveChart.FullSeriesCollection(3).Name = "=""Hedef Paket"""
+    ActiveChart.FullSeriesCollection(3).Values = "=Ciro_!$d$4:$d" & satir_sayisi(ws7, "d4") + 2
+    ActiveChart.FullSeriesCollection(3).XValues = "=Ciro_!$a$4:$a" & satir_sayisi(ws7, "a4") + 2
+    
+    'veri gösterim tipini belirle
+    ActiveChart.Axes(xlValue).MajorGridlines.Select
+    ActiveChart.ChartType = xlColumnClustered
+    ActiveChart.FullSeriesCollection(1).ChartType = xlColumnClustered
+    ActiveChart.FullSeriesCollection(1).AxisGroup = 1
+    ActiveChart.FullSeriesCollection(2).AxisGroup = 2
+    ActiveChart.FullSeriesCollection(2).ChartType = xlLine
+    ActiveChart.FullSeriesCollection(3).AxisGroup = 2
+    ActiveChart.FullSeriesCollection(3).ChartType = xlLineMarkers
+    
+    ActiveChart.Axes(xlValue, xlPrimary).MaximumScale = 70000
+    ActiveChart.Axes(xlValue, xlSecondary).MaximumScale = 500
+     
+    'font tipini ayarla
+    ActiveChart.FullSeriesCollection(1).Select
+    ActiveChart.FullSeriesCollection(1).ApplyDataLabels
+    ActiveChart.FullSeriesCollection(1).DataLabels.Select
+    Selection.Format.TextFrame2.TextRange.Font.Size = 10
+    Selection.Format.TextFrame2.TextRange.Font.Bold = msoTrue
+    Selection.Format.TextFrame2.TextRange.Font.Fill.ForeColor.ObjectThemeColor = msoThemeColorText1
+    
+
+    
+    ActiveChart.FullSeriesCollection(2).Select
+    Selection.Format.Line.ForeColor.ObjectThemeColor = msoThemeColorAccent2
+    Selection.ApplyDataLabels
+    ActiveChart.FullSeriesCollection(2).DataLabels.Select
+    Selection.Format.TextFrame2.TextRange.Font.Size = 10
+    ActiveChart.FullSeriesCollection(2).DataLabels.Select
+    With Selection.Format.TextFrame2.TextRange.Font.Fill
+        .Visible = msoTrue
+        .ForeColor.ObjectThemeColor = msoThemeColorText1
+        .ForeColor.TintAndShade = 0
+        .ForeColor.Brightness = 1
+        .Transparency = 0
+        .Solid
+    End With
+    Selection.Format.TextFrame2.TextRange.Font.Bold = msoTrue
+    
+    ActiveChart.FullSeriesCollection(3).Select
+    With Selection.Format.Line
+        .Visible = msoTrue
+        .ForeColor.RGB = RGB(255, 255, 0)
+        .Transparency = 0
+    End With
+     
+    ActiveChart.PlotArea.Select
+    Selection.Format.Line.ForeColor.ObjectThemeColor = msoThemeColorBackground1
+        
+    
+  'döşeme ciro
+  ActiveSheet.Shapes.AddChart2(209, xlColumnClustered).Select
+  
+  'grafiğin mevkisi
+  Selection.Top = 650
+    Selection.Left = 300
+    Selection.Height = 400
+    Selection.Width = 800
+  
+  'isim belirle
+     ws1.ChartObjects(2).Name = ("Döşeme Paket")
+    ActiveSheet.ChartObjects("Döşeme Paket").Activate
+        ActiveChart.ChartTitle.Text = "Döşemeli Ciro"
+
+    'arka plan rengi
+       ActiveChart.PlotArea.Select
+    With Selection.Format.Fill
+        .Visible = msoTrue
+        .ForeColor.ObjectThemeColor = msoThemeColorBackground1
+        .ForeColor.TintAndShade = 0
+        .ForeColor.Brightness = -0.349999994
+        .Transparency = 0
+        .Solid
+    End With
+     
+    'verileri ekle
+    ActiveChart.SeriesCollection.NewSeries
+    ActiveChart.FullSeriesCollection(1).Name = "=""Toplam Ciro"""
+    ActiveChart.FullSeriesCollection(1).Values = "=Ciro_!$al$4:$al" & satir_sayisi(ws7, "al4") + 2
+    ActiveChart.FullSeriesCollection(1).XValues = "=Ciro_!$ak$4:$ak" & satir_sayisi(ws7, "ak4") + 2
+    ActiveChart.SeriesCollection.NewSeries
+    ActiveChart.FullSeriesCollection(2).Name = "=""Toplam Paket"""
+    ActiveChart.FullSeriesCollection(2).Values = "=Ciro_!$n$4:$n" & satir_sayisi(ws7, "n4") + 2
+    ActiveChart.FullSeriesCollection(2).XValues = "=Ciro_!$m$4:$m" & satir_sayisi(ws7, "m4") + 2
+    ActiveChart.SeriesCollection.NewSeries
+    ActiveChart.FullSeriesCollection(3).Name = "=""Hedef Paket"""
+    ActiveChart.FullSeriesCollection(3).Values = "=Ciro_!$p$4:$p" & satir_sayisi(ws7, "p4") + 2
+    ActiveChart.FullSeriesCollection(3).XValues = "=Ciro_!$m$4:$m" & satir_sayisi(ws7, "m4") + 2
+    
+    'veri gösterim tipini belirle
+    ActiveChart.Axes(xlValue).MajorGridlines.Select
+    ActiveChart.ChartType = xlColumnClustered
+    ActiveChart.FullSeriesCollection(1).ChartType = xlColumnClustered
+    ActiveChart.FullSeriesCollection(1).AxisGroup = 1
+    ActiveChart.FullSeriesCollection(2).AxisGroup = 2
+    ActiveChart.FullSeriesCollection(2).ChartType = xlLine
+    ActiveChart.FullSeriesCollection(3).AxisGroup = 2
+    ActiveChart.FullSeriesCollection(3).ChartType = xlLineMarkers
+    
+    ActiveChart.Axes(xlValue, xlPrimary).MaximumScale = 100000
+    ActiveChart.Axes(xlValue, xlSecondary).MaximumScale = 413
+     
+    'font tipini ayarla
+    ActiveChart.FullSeriesCollection(1).Select
+    ActiveChart.FullSeriesCollection(1).ApplyDataLabels
+    ActiveChart.FullSeriesCollection(1).DataLabels.Select
+    Selection.Format.TextFrame2.TextRange.Font.Size = 10
+    Selection.Format.TextFrame2.TextRange.Font.Bold = msoTrue
+    Selection.Format.TextFrame2.TextRange.Font.Fill.ForeColor.ObjectThemeColor = msoThemeColorText1
+    
+
+    
+    ActiveChart.FullSeriesCollection(2).Select
+    Selection.Format.Line.ForeColor.ObjectThemeColor = msoThemeColorAccent2
+    Selection.ApplyDataLabels
+    ActiveChart.FullSeriesCollection(2).DataLabels.Select
+    Selection.Format.TextFrame2.TextRange.Font.Size = 10
+    ActiveChart.FullSeriesCollection(2).DataLabels.Select
+    With Selection.Format.TextFrame2.TextRange.Font.Fill
+        .Visible = msoTrue
+        .ForeColor.ObjectThemeColor = msoThemeColorText1
+        .ForeColor.TintAndShade = 0
+        .ForeColor.Brightness = 1
+        .Transparency = 0
+        .Solid
+    End With
+    Selection.Format.TextFrame2.TextRange.Font.Bold = msoTrue
+    
+    ActiveChart.FullSeriesCollection(3).Select
+    With Selection.Format.Line
+        .Visible = msoTrue
+        .ForeColor.RGB = RGB(255, 255, 0)
+        .Transparency = 0
+    End With
+     
+    ActiveChart.PlotArea.Select
+    Selection.Format.Line.ForeColor.ObjectThemeColor = msoThemeColorBackground1
+    
+    
+    
+  'döşeme süre trend
+  ActiveSheet.Shapes.AddChart2(209, xlColumnClustered).Select
+   
+   
+  'grafiğin mevkisi
+  Selection.Top = 1200
+    Selection.Left = 300
+    Selection.Height = 400
+    Selection.Width = 800
+  
+  'isim belirle
+     ws1.ChartObjects(3).Name = ("Döşeme Süreleri")
+    ActiveSheet.ChartObjects("Döşeme Süreleri").Activate
+        ActiveChart.ChartTitle.Text = "Döşeme Süreleri"
+
+    'arka plan rengi
+       ActiveChart.PlotArea.Select
+    With Selection.Format.Fill
+        .Visible = msoTrue
+        .ForeColor.ObjectThemeColor = msoThemeColorBackground1
+        .ForeColor.TintAndShade = 0
+        .ForeColor.Brightness = -0.349999994
+        .Transparency = 0
+        .Solid
+    End With
+     
+    'verileri ekle
+    ActiveChart.SeriesCollection.NewSeries
+    ActiveChart.FullSeriesCollection(1).Name = "=""DOSEME SURE"""
+    ActiveChart.FullSeriesCollection(1).Values = "=Maliyet!$AL$4:$AL$" & satir_sayisi(ws9, "al4") + 2
+    ActiveChart.FullSeriesCollection(1).XValues = "=Maliyet!$AK$4:$AK$" & satir_sayisi(ws9, "aK4") + 2
+    ActiveChart.SeriesCollection.NewSeries
+    ActiveChart.FullSeriesCollection(2).Name = "=""Mesai Oran"""
+    ActiveChart.FullSeriesCollection(2).Values = "=Maliyet!$AJ$4:$AJ$" & satir_sayisi(ws9, "aJ4") + 3
+    ActiveChart.FullSeriesCollection(2).XValues = "=Maliyet!$AK$4:$AK$" & satir_sayisi(ws9, "aK4") + 2
+    ActiveChart.SeriesCollection.NewSeries
+    ActiveChart.FullSeriesCollection(3).Name = "=""Mesai Süre"""
+    ActiveChart.FullSeriesCollection(3).Values = "=Maliyet!$AI$4:$AI$" & satir_sayisi(ws9, "aI4") + 3
+    ActiveChart.FullSeriesCollection(3).XValues = "=Maliyet!$AK$4:$AK$" & satir_sayisi(ws9, "ak4") + 2
+     
+    'veri gösterim tipini belirle
+    ActiveChart.Axes(xlValue).MajorGridlines.Select
+    ActiveChart.ChartType = xlColumnClustered
+    ActiveChart.FullSeriesCollection(1).ChartType = xlColumnClustered
+    ActiveChart.FullSeriesCollection(1).AxisGroup = 1
+    ActiveChart.FullSeriesCollection(2).AxisGroup = 2
+    ActiveChart.FullSeriesCollection(2).ChartType = xlLine
+    ActiveChart.FullSeriesCollection(3).AxisGroup = 3
+    ActiveChart.FullSeriesCollection(3).ChartType = xlLineMarkersStacked
+'
+    ActiveChart.Axes(xlValue, xlPrimary).MaximumScale = 30000
+    ActiveChart.Axes(xlValue, xlSecondary).MaximumScale = 3
+    
+'
+    'font tipini ayarla
+    ActiveChart.FullSeriesCollection(1).Select
+    ActiveChart.FullSeriesCollection(1).ApplyDataLabels
+    ActiveChart.FullSeriesCollection(1).DataLabels.Select
+    Selection.Format.TextFrame2.TextRange.Font.Size = 10
+    Selection.Format.TextFrame2.TextRange.Font.Bold = msoTrue
+    Selection.Format.TextFrame2.TextRange.Font.Fill.ForeColor.ObjectThemeColor = msoThemeColorText1
+    
+
+    
+    ActiveChart.FullSeriesCollection(2).Select
+    Selection.Format.Line.ForeColor.ObjectThemeColor = msoThemeColorAccent5
+    Selection.ApplyDataLabels
+    ActiveChart.FullSeriesCollection(2).DataLabels.Select
+    Selection.Format.TextFrame2.TextRange.Font.Size = 10
+    ActiveChart.FullSeriesCollection(2).DataLabels.Select
+    With Selection.Format.TextFrame2.TextRange.Font.Fill
+        .Visible = msoTrue
+        .ForeColor.ObjectThemeColor = msoThemeColorText1
+        .ForeColor.TintAndShade = 0
+        .ForeColor.Brightness = 1
+        .Transparency = 0
+        .Solid
+    End With
+    Selection.Format.TextFrame2.TextRange.Font.Bold = msoTrue
+    
+     ActiveChart.FullSeriesCollection(3).Select
+    Selection.Format.Line.ForeColor.ObjectThemeColor = msoThemeColorAccent2
+    
+    
+    ActiveChart.PlotArea.Select
+    Selection.Format.Line.ForeColor.ObjectThemeColor = msoThemeColorBackground1
+        
+    
+ws8.Select
+ws8.Activate
+
+Call tabloVeChartSil(ws8)
+  
+  'plaka bildirim
+  ActiveSheet.Shapes.AddChart2(209, xlColumnClustered).Select
+  
+  'grafiğin mevkisi
+  Selection.Top = 40
+    Selection.Left = 300
+    Selection.Height = 400
+    Selection.Width = 800
+  
+  'isim belirle
+     ws8.ChartObjects(1).Name = ("Plaka Hedef")
+    ActiveSheet.ChartObjects("Plaka Hedef").Activate
+        ActiveChart.ChartTitle.Text = "Plaka Hedef"
+
+    'arka plan rengi
+       ActiveChart.PlotArea.Select
+    With Selection.Format.Fill
+        .Visible = msoTrue
+        .ForeColor.ObjectThemeColor = msoThemeColorBackground1
+        .ForeColor.TintAndShade = 0
+        .ForeColor.Brightness = -0.349999994
+        .Transparency = 0
+        .Solid
+    End With
+     
+    'verileri ekle
+    ActiveChart.SeriesCollection.NewSeries
+    ActiveChart.FullSeriesCollection(1).Name = "=""Kesilen Plaka"""
+    ActiveChart.FullSeriesCollection(1).Values = "=Sunta!$a$8:$a" & satir_sayisi(ws5, "a8") + 7
+    ActiveChart.FullSeriesCollection(1).XValues = "=Sunta!$b$8:$b" & satir_sayisi(ws5, "b8") + 7
+    ActiveChart.SeriesCollection.NewSeries
+    ActiveChart.FullSeriesCollection(2).Name = "=""Hedef Plaka"""
+    ActiveChart.FullSeriesCollection(2).Values = "=Sunta!$c$8:$c" & satir_sayisi(ws5, "c8") + 7
+    ActiveChart.FullSeriesCollection(2).XValues = "=Sunta!$b$8:$b" & satir_sayisi(ws5, "b8") + 7
+   
+    'veri gösterim tipini belirle
+    ActiveChart.Axes(xlValue).MajorGridlines.Select
+    ActiveChart.ChartType = xlColumnClustered
+    ActiveChart.FullSeriesCollection(1).ChartType = xlColumnClustered
+    ActiveChart.FullSeriesCollection(1).AxisGroup = 1
+    ActiveChart.FullSeriesCollection(2).AxisGroup = 2
+    ActiveChart.FullSeriesCollection(2).ChartType = xlLineMarkers
+ 
+    ActiveChart.Axes(xlValue, xlPrimary).MaximumScale = 350
+    ActiveChart.Axes(xlValue, xlSecondary).MaximumScale = 350
+     
+    'font tipini ayarla
+    ActiveChart.FullSeriesCollection(1).Select
+    ActiveChart.FullSeriesCollection(1).ApplyDataLabels
+    ActiveChart.FullSeriesCollection(1).DataLabels.Select
+    Selection.Format.TextFrame2.TextRange.Font.Size = 10
+    Selection.Format.TextFrame2.TextRange.Font.Bold = msoTrue
+    Selection.Format.TextFrame2.TextRange.Font.Fill.ForeColor.ObjectThemeColor = msoThemeColorText1
+    
+
+    
+    ActiveChart.FullSeriesCollection(2).Select
+    Selection.Format.Line.ForeColor.ObjectThemeColor = msoThemeColorAccent2
+    Selection.ApplyDataLabels
+    ActiveChart.FullSeriesCollection(2).DataLabels.Select
+    Selection.Format.TextFrame2.TextRange.Font.Size = 10
+    ActiveChart.FullSeriesCollection(2).DataLabels.Select
+    With Selection.Format.TextFrame2.TextRange.Font.Fill
+        .Visible = msoTrue
+        .ForeColor.ObjectThemeColor = msoThemeColorText1
+        .ForeColor.TintAndShade = 0
+        .ForeColor.Brightness = 1
+        .Transparency = 0
+        .Solid
+    End With
+    Selection.Format.TextFrame2.TextRange.Font.Bold = msoTrue
+    
+    ActiveChart.PlotArea.Select
+    Selection.Format.Line.ForeColor.ObjectThemeColor = msoThemeColorBackground1
+
+ws.range("I1:I100000").NumberFormat = "General"
+ws1.Select
+ws1.Activate
+'Call sifir_fiyat
+'MsgBox "Detaylı hesaplansın mı?", vbYesNo, "Detay Hesap"
+
+'If vbYes Then
+'Call maliyet_kontrol
+'End If
+
+End Sub
+
+
+Sub sifir_fiyat()
+Set wb = ThisWorkbook
+Set ws2 = wb.Sheets("Ham")
+Set ws1 = wb.Sheets("Sheet1")
+Set ws = wb.Sheets("Pak")
+Set ws5 = wb.Sheets("Sunta")
+Set ws6 = wb.Sheets("veri_giris")
+
+ws4.range("a2:a" & satir_sayisi(ws4, "a1")).ClearContents
+
+Worksheets("Pak").ListObjects("PAKET").AutoFilter.showalldata
+
+Set paket0fiyat = ws.range("E8:E" & satir_sayisi(ws, "D7"))
+
+ws.ListObjects("PAKET").range.AutoFilter Field:=12, Criteria1:="0"
+
+say = 0
+ws4.Select
+ws4.Activate
+ws4.Cells(1, 1).Value = "paket 0 fiyat"
+On Error Resume Next
+ For Each cl In paket0fiyat.SpecialCells(xlCellTypeVisible)
+        ws4.Cells(satir_sayisi(ws4, "A1") + 1, 1).Value = cl.Value
+        say = say + 1
+    Next cl
+On Error GoTo 0
+
+ws.Select
+ws.Activate
+ws.range("I:I").NumberFormat = "0"
+Worksheets("Pak").ListObjects("PAKET").AutoFilter.showalldata
+
+ws4.range("b2:b" & satir_sayisi(ws4, "b1")).ClearContents
+
+ws2.Select
+ws2.Activate
+
+Worksheets("Ham").ListObjects("HAM").AutoFilter.showalldata
+
+Set ham0fiyat = ws2.range("H8:H" & satir_sayisi(ws2, "H7"))
+
+ws2.ListObjects("HAM").range.AutoFilter Field:=10, Criteria1:="0"
+
+say = 0
+ws4.Select
+ws4.Activate
+ws4.Cells(1, 2).Value = "ham 0 fiyat"
+On Error Resume Next
+ For Each cl In ham0fiyat.SpecialCells(xlCellTypeVisible)
+        ws4.Cells(satir_sayisi(ws4, "B1") + 1, 2).Value = cl.Value
+        say = say + 1
+    Next cl
+On Error GoTo 0
+
+ws2.Select
+ws2.Activate
+
+Worksheets("Ham").ListObjects("HAM").AutoFilter.showalldata
+
+ws1.Select
+ws1.Activate
+
+ Application.ScreenUpdating = True
+      
+End Sub
+
+Sub ErrHandler(conn As Object)
+
+Dim ADOErr As ADODB.Error
+Dim strError As String
+
+For Each ADOErr In conn.Errors
+    strError = "Error #" & ADOErr.Number & vbCrLf & ADOErr.Description _
+    & vbCr & _
+    " (Source: " & ADOErr.Source & ")" & vbCr & _
+    " (SQL State: " & ADOErr.SqlState & ")" & vbCr & _
+    " (NativeError: " & ADOErr.NativeError & ")" & vbCr
+    If ADOErr.HelpFile = "" Then
+        strError = strError & " No Help file available" & vbCr & vbCr
+    Else
+        strError = strError & " (HelpFile: " & ADOErr.HelpFile & ")" _
+        & vbCr & _
+        " (HelpContext: " & ADOErr.HelpContext & ")" & _
+        vbCr & vbCr
+    End If
+    MsgBox strError
+Next
+
+conn.Errors.Clear
+
+
+End Sub
+
+Public Sub maliyet_kontrol()
+
+On Error GoTo ErrHandler
+
+
+    Set wb = ThisWorkbook
+    Set ws = wb.Sheets("Pak")
+    Set ws1 = wb.Sheets("kontrol")
+    Set ws2 = wb.Sheets("Sheet1")
+    
+  
+'Call tablo("SIL", "MALIYETDETAY", ws, "A7")
+
+bitis_tarih = Format(ws2.Cells(4, 2).Value, "yyyy-mm-dd")
+    
+
+ws1.range("A7:L" & satir_sayisi(ws1, "B7")).ClearContents
+
+sSQL = "truncate table kktMaliyetTabloBase; insert into kktMaliyetTabloBase (mamul_kodu,sip_no,sip_sira) values "
+    For i = 8 To satir_sayisi(ws, "d7") + 6
+    mamul_kodu = ws.Cells(i, 5).Value
+    sip_no = ws.Cells(i, 2).Value
+    sip_sira = ws.Cells(i, 3).Value
+ 
+            If mamul_kodu <> "" Then
+                sSQL = sSQL & "('" & mamul_kodu & "','" & sip_no & "'," & sip_sira & "), "
+            End If
+           
+    Next i
+    
+        sSQL = Left(sSQL, Len(sSQL) - 2)
+        
+        cmd.CommandText = sSQL
+ 
+            cmd.CommandType = adCmdText
+            Set conn = GetNewConnection
+            cmd.ActiveConnection = conn
+            cmd.Execute
+
+    Set conn = Nothing
+
+'veri bağlantısı
+Set conn = GetNewConnection
+con.CommandTimeout = 360
+conn.CursorLocation = adUseServer 'Must use Server side cursor.
+
+    ' Automatically fill in parameter info from stored procedure.
+Set cmd.ActiveConnection = conn
+
+With cmd
+.CommandType = adCmdStoredProc
+.CommandText = "kkpCiroMaliyetHesapla"
+.CommandTimeout = 360
+End With
+
+
+'Parameter 0 is the setting for the stored procedure Output
+' parameter.
+Dim param As Object
+Set param = cmd.CreateParameter(bitis_tarih, adDate, _
+adParamInput)
+cmd.Parameters.Append param
+cmd.Parameters(bitis_tarih).Value = bitis_tarih
+
+Set rs = cmd.Execute
+
+Set rs = Nothing
+Set cmd = Nothing
+Set prm = Nothing
+
+sSQL = "select * from kktCiroHamMaliyetTablo"
+
+Call veriGetir(sSQL, 7, "A8", ws1)
+
+Call tablo("OLUSTUR", "MALIYETDETAY", ws, "A7")
+
+GoTo Shutdown
+
+ErrHandler:
+Call ErrHandler(conn)
+Resume Next
+
+Shutdown:
+Set cmd = Nothing
+Set prm = Nothing
+Set conn = Nothing
+Call paket_maliyet_detay
+
+
+End Sub
+
+Public Sub paket_maliyet_detay()
+
+Set wb = ThisWorkbook
+Set ws1 = wb.Sheets("kontrol")
+
+ws1.range("o7:S" & satir_sayisi(ws1, "P7") + 7).ClearContents
+
+ sSQL = "SELECT sip_no,sip_sira,a.mamul_kodu,satisFiyatUsd, dov_tip, paket_kodu, sum(toplamFiyat) as paket_maliyet,Toplam_Paket_Adedi  FROM kktCiroHamMaliyetTablo a" & _
+" LEFT JOIN (select distinct count(ham_kodu) as Toplam_Paket_Adedi,mamul_kodu from tblstokurm where ham_kodu like 'P%' group by mamul_kodu) b on a.mamul_kodu=b.MAMUL_KODU" & _
+" where paket_kodu like 'p%'" & _
+" group by sip_no,sip_sira,a.mamul_kodu,satisFiyatUsd, dov_tip,paket_kodu,Toplam_Paket_Adedi" & _
+" order by sip_no,sip_sira,mamul_kodu,paket_kodu"
+
+  Call veriGetir(sSQL, 6, "O8", ws1)
+  ws1.range("A6:D6").Cut ws1.range("o7:r7")
+  Set rs = Nothing
+  Set conn = Nothing
+  
+  Call mamul_maliyet_hesap
+  
+End Sub
+
+
+Public Sub mamul_maliyet_hesap()
+Set wb = ThisWorkbook
+Set ws1 = wb.Sheets("kontrol")
+
+ws1.range("w8:w" & satir_sayisi(ws1, "w7") + 7).ClearContents
+son_satir = satir_sayisi(ws1, "q7") + 6
+For i = 8 To son_satir
+  Dim j As Variant
+  Dim k As Variant
+    
+  If i <> 8 Then
+  geriyeDonuk = Cells(i - 1, 22).Value
+  End If
+    
+  
+  j = Cells(i - 1, 22).Value
+  k = Cells(i, 22).Value
+  
+  mamulKey = Cells(i, 15).Value & Cells(i, 16).Value & Cells(i, 17).Value
+  mamulKeyOnceki = Cells(i - 1, 15).Value & Cells(i - 1, 16).Value & Cells(i - 1, 17).Value
+  
+    If i <> 8 And i <> son_satir And j <> k And Cells(i - 1, 17).Value <> Cells(i, 17).Value Then
+    Cells(i - 1, 23).Value = kumulatif_toplam
+        If Cells(i - 1, 22).Value <> 1 Then
+        range("W" & i - 1).Copy range("W" & i - (geriyeDonuk) & ":W" & i - 2)
+        End If
+    kumulatif_toplam = Cells(i, 21).Value
+    ElseIf i <> 8 And i <> son_satir And j = k And Cells(i - 1, 17).Value = Cells(i, 17).Value And mamulKey = mamulKeyOnceki Then
+    kumulatif_toplam = kumulatif_toplam + Cells(i, 21).Value
+    ElseIf i <> 8 And i <> son_satir And j = k And Cells(i - 1, 17).Value <> Cells(i, 17).Value And mamulKey = mamulKeyOnceki Then
+    Cells(i - 1, 23).Value = kumulatif_toplam
+    kumulatif_toplam = Cells(i, 21).Value
+        If Cells(i - 1, 22).Value <> 1 Then
+        range("W" & i - 1).Copy range("W" & i - geriyeDonuk & ":W" & i - 2)
+        End If
+    ElseIf i <> 8 And i <> son_satir And j = k And Cells(i - 1, 17).Value <> Cells(i, 17).Value And mamulKey <> mamulKeyOnceki Then
+    Cells(i - 1, 23).Value = kumulatif_toplam
+    kumulatif_toplam = Cells(i, 21).Value
+        If Cells(i - 1, 22).Value <> 1 Then
+        range("W" & i - 1).Copy range("W" & i - geriyeDonuk & ":W" & i - 2)
+        End If
+    
+    ElseIf i <> 8 And i <> son_satir And j = k And Cells(i - 1, 17).Value = Cells(i, 17).Value And mamulKey <> mamulKeyOnceki Then
+    Cells(i - 1, 23).Value = kumulatif_toplam
+    kumulatif_toplam = Cells(i, 21).Value
+        If Cells(i - 1, 22).Value <> 1 Then
+        range("W" & i - 1).Copy range("W" & i - geriyeDonuk & ":W" & i - 2)
+        End If
+    
+    ElseIf i = 8 And Cells(i, 22).Value = 1 Then
+    Cells(i, 23).Value = Cells(i, 21).Value
+    kumulatif_toplam = Cells(i, 21).Value
+    ElseIf i = 8 And Cells(i, 22).Value <> 1 Then
+    kumulatif_toplam = Cells(i, 21).Value
+    ElseIf i = son_satir And Cells(i, 22).Value = 1 Then
+    Cells(i, 23).Value = Cells(i, 21).Value
+    ElseIf i = son_satir And Cells(i, 22).Value <> 1 Then
+    kumulatif_toplam = kumulatif_toplam + Cells(i, 21).Value
+    Cells(i, 23).Value = kumulatif_toplam
+    range("W" & i).Copy range("W" & i - (geriyeDonuk - 1) & ":W" & i - 1)
+    kumulatif_toplam = 0
+    Else
+    Cells(i, 23).Value = "beklenmeyen"
+    MsgBox "Beklenmeyen bir durum oluştu kontrol etmenizi", vbCritical, "Beklenmeyen"
+    
+    End If
+  
+  Next i
+  
+  For i = 8 To son_satir
+  
+  Cells(i, 24).Value = Cells(i, 21).Value / Cells(i, 23).Value
+  Cells(i, 25).Value = Cells(i, 18).Value * Cells(i, 24).Value
+  Cells(i, 25).Value = Cells(i, 15).Value & Cells(i, 16).Value & Cells(i, 17).Value & Cells(i, 20).Value
+    Next i
+  
+End Sub
+
