@@ -1,0 +1,200 @@
+Dim rs As ADODB.Recordset
+Dim cmd As New ADODB.Command
+Dim prm As New ADODB.Parameter
+Dim prm1 As New ADODB.Parameter
+Dim conn As ADODB.Connection
+
+Public Sub tablo(ByVal olay, isim, sayfa, hucre)
+    Dim tbOb As ListObject
+    Dim TblRng As range
+    Dim hucre_harf As String
+    hucre_harf = Left(hucre, 1)
+    hucre_sayi = Right(hucre, 1)
+    If olay = "OLUSTUR" Then
+    With sayfa
+        lLastRow = .Cells(.Rows.Count, 1).End(xlUp).Row
+        lLastColumn = .Cells(hucre_sayi, .Columns.Count).End(xlToLeft).Column
+        Set TblRng = .range(hucre, .Cells(lLastRow, lLastColumn))
+        Set tbOb = .ListObjects.Add(xlSrcRange, TblRng, , xlYes)
+        tbOb.Name = isim
+        tbOb.TableStyle = "TableStyleLight16"
+    End With
+    ElseIf olay = "SIL" Then
+        If sayfa.ListObjects.Count > 0 Then
+        sayfa.ListObjects(isim).Delete
+        End If
+        
+    Else
+    MsgBox "Tablo oluşturma hatası"
+    End If
+End Sub
+
+
+Public Sub veriTemizle(sayfa)
+    sayfa.Rows("1:" & Rows.Count).ClearContents
+End Sub
+
+Public Function FiltArtAz(sayfa, baslangic, baslangic_sayi, bitis, satir_sonu_hesapla,  _adresi, asc_des, key_yes_no)
+
+Dim ws As Worksheet
+Set ws = sayfa
+
+
+'artan mı azalan mı
+If asc_des = "desc" Then
+art_az = xlDescending
+ElseIf asc_des = "asc" Then
+art_az = xlAscending
+Else
+MsgBox ("kodlama hatası: filtArtAz->asc_des sadece asc veya desc değeri alır")
+End If
+
+
+'başlık var mi
+If key_yes_no = "yes" Then
+Key = xlYes
+ElseIf key_yes_no = "no" Then
+Key = xlNo
+Else
+MsgBox ("kodlama hatası: filtArtAz->key_yes_no sadece yes veya no değeri alır")
+End If
+
+satir_sonu = satir_sayisi(ws, "I1")
+
+range(baslangic & baslangic_sayi & ":" & bitis & satir_sonu).Sort Key1:=range(filtre_adresi), Order1:=art_az, Header:=Key
+End Function
+Public Sub filtreKaldir(sayfa)
+On Error Resume Next
+sayfa.showalldata
+On Error GoTo 0
+End Sub
+
+Public Function GetNewConnection() As ADODB.Connection
+Dim oCn As New ADODB.Connection
+Dim sCnStr As String
+sCnStr = "Provider=SQLOLEDB.1;Password=sapass;Persist Security Info=True;User ID=sa;Initial Catalog= VITA" & Sheet1.Cells(1, 2).Value & ";Data Source=192.168.1.11;Use Procedure for Prepare=1;Auto Translate=True;Packet Size=4096;Workstation ID=L-AMRO;Use Encryption for Data=False;Tag with column collation when possible=False"
+oCn.Open sCnStr
+If oCn.State = adStateOpen Then
+Set GetNewConnection = oCn
+End If
+End Function
+
+Public Function satir_sayisi(sayfa, hucre) As Integer
+
+satir_sayisi = sayfa.range(hucre, sayfa.range(hucre).End(xlDown).End(xlDown).End(xlUp)).Rows.Count
+
+End Function
+
+Public Function sutun_sayisi(sayfa, hucre) As Integer
+
+sutun_sayisi = sayfa.range(hucre, sayfa.range(hucre).End(xlToRight)).Columns.Count
+
+End Function
+
+
+Public Function mesaiGunu(tarih) As String
+ 
+
+        If WeekdayName(Weekday(tarih, 0), False, 0) = "Saturday" Or WeekdayName(Weekday(tarih, 0), False, 0) = "Cumartesi" Then
+        mesaiGunu = tarih + 2
+        ElseIf WeekdayName(Weekday(tarih, 0), False, 0) = "Sunday" Or WeekdayName(Weekday(tarih, 0), False, 0) = "Pazar" Then
+        mesaiGunu = tarih + 1
+        Else
+        mesaiGunu = tarih
+        End If
+        
+End Function
+
+
+Public Function gunAdi(tarih) As String
+
+gunAdi = WeekdayName(Weekday(tarih, 0), False, 0)
+
+End Function
+
+Public Sub yedek()
+Sub toplam_paket_adedi()
+Dim i As Integer
+i = 8
+Dim j As Integer
+j = 1
+
+
+Dim wb As ThisWorkbook
+Dim ws As Worksheet
+Set wb = ThisWorkbook
+Set ws = wb.Sheets("Pak")
+
+
+Do While i < satir_sayisi(ws, "q8") + 8
+If ws.Cells(i, 17).Value <> ws.Cells(i - 1, 17).Value Then
+ws.Cells(i, 19).Value = 1
+j = 1
+Else:
+j = j + 1
+ws.Cells(i, 19).Value = j
+
+End If
+i = i + 1
+Loop
+
+Call paket_sayisi
+
+End Sub
+
+Sub paket_sayisi()
+Dim i As Integer
+Dim j As Integer
+j = 1
+
+Dim wb As ThisWorkbook
+Dim ws As Worksheet
+Set wb = ThisWorkbook
+Set ws = wb.Sheets("Pak")
+Set ws2 = wb.Sheets("Ham")
+
+ws.range("J7").Value = "Toplam_Paket_Adedi"
+ws.range("K7").Value = "Toplam_Fiyat"
+
+i = satir_sayisi(ws, "q8") + 8
+Do While i > 7
+If ws.Cells(i + 1, 19).Value = 1 Then
+j = ws.Cells(i, 19).Value
+ws.Cells(i, 20).Value = j
+End If
+
+If ws.Cells(i + 1, 19).Value <> 1 & ws.Cells(i, 19).Value < ws.Cells(i + 1, 19).Value Then
+ws.Cells(i, 20).Value = j
+End If
+
+If ws.Cells(i, 19).Value = 1 And ws.Cells(i + 1, 18).Value = 1 Then
+j = 1
+ws.Cells(i, 20).Value = j
+End If
+
+i = i - 1
+Loop
+
+ For i = 8 To satir_sayisi(ws, "g7") + 6
+ 
+    If ws.Cells(i, 5).Value = "" Then
+    GoTo NextIteration
+    Else
+    ID = ws.Cells(i, 5).Value
+    End If
+    
+    myerange = ws.range("q8:T19999")
+ 
+    If Application.WorksheetFunction.VLookup(ID, myerange, 4, False) <> "" Then
+    ws.Cells(i, 10).Value = Application.WorksheetFunction.VLookup(ID, myerange, 4, False)
+    Else
+    ws.Cells(i, 10).Value = 1
+    strMsg = "Toplam Paket Adedi bulunamayan paketler mevcut, bu durum hesaplamada hataya neden olabilir"
+    End If
+ ws.Cells(i, 11).Value = (ws.Cells(i, 8).Value / ws.Cells(i, 10).Value) * ws.Cells(i, 6).Value
+NextIteration:
+Next i
+
+
+
+End Sub
