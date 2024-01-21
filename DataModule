@@ -1,0 +1,112 @@
+Public Sub veriGiris(sSQL, cmdType)
+    Dim objConn As New ADODB.Connection
+    Dim objCmd As New ADODB.Command
+
+    objCmd.CommandText = sSQL
+    objCmd.CommandType = cmdType
+    Set objConn = GetNewConnection
+    objCmd.ActiveConnection = objConn
+    objCmd.Execute
+      
+    objConn.Close
+
+End Sub
+Public Sub veriGetir(sSQL, baslangic_satir, hucre, sayfa)
+' Create and Open the Recordset object.
+Set rs = New ADODB.Recordset
+rs.CursorLocation = adUseClient
+rs.Open sSQL, GetNewConnection, adOpenStatic, _
+               adLockBatchOptimistic, adCmdText
+  
+For iCols = 0 To rs.Fields.Count - 1
+ sayfa.Cells(baslangic_satir, iCols + 1).Value = rs.Fields(iCols).Name
+Next
+sayfa.range(sayfa.Cells(baslangic_satir, 1), _
+ sayfa.Cells(baslangic_satir, rs.Fields.Count)).Font.Bold = True
+
+If rs.RecordCount > 0 Then
+sayfa.range(hucre).CopyFromRecordset rs
+End If
+
+rs.MarshalOptions = adMarshalModifiedOnly
+' Disconnect the Recordset.
+Set rs.ActiveConnection = Nothing
+rs.Close
+
+End Sub
+Public Sub veriGetirBasliksiz(sSQL, range, sayfa)
+
+Set rs = New ADODB.Recordset
+rs.CursorLocation = adUseClient
+rs.Open sSQL, GetNewConnection, adOpenStatic, _
+               adLockBatchOptimistic, adCmdText
+
+sayfa.range(range).CopyFromRecordset rs
+  
+rs.MarshalOptions = adMarshalModifiedOnly
+' Disconnect the Recordset.
+Set rs.ActiveConnection = Nothing
+rs.Close
+
+End Sub
+Public Function storedProcedure(prosedurIsmi, parametre1, parametre2)
+Dim rs As ADODB.Recordset
+Set conn = GetNewConnection
+conn.CursorLocation = adUseServer 'Must use Server side cursor.
+
+ Set cmd = New ADODB.Command
+Set cmd.ActiveConnection = conn
+With cmd
+    ' Automatically fill in parameter info from stored procedure.
+.CommandType = adCmdStoredProc
+.CommandText = prosedurIsmi
+End With
+
+'Parameter 0 is the setting for the stored procedure Output
+' parameter.
+
+Set prm = cmd.CreateParameter(parametre1, adDate, _
+adParamInput)
+cmd.Parameters.Append prm
+cmd.Parameters(parametre1).Value = parametre1
+
+'Parameter 1
+
+Set prm = cmd.CreateParameter(parametre2, adDate, _
+adParamInput)
+cmd.Parameters.Append prm
+cmd.Parameters(parametre2).Value = parametre2
+
+Set rs = cmd.Execute
+
+
+End Function
+
+
+
+Sub ErrHandler(conn As Object)
+
+Dim ADOErr As ADODB.Error
+Dim strError As String
+
+For Each ADOErr In conn.Errors
+    strError = "Error #" & ADOErr.Number & vbCrLf & ADOErr.Description _
+    & vbCr & _
+    " (Source: " & ADOErr.Source & ")" & vbCr & _
+    " (SQL State: " & ADOErr.SqlState & ")" & vbCr & _
+    " (NativeError: " & ADOErr.NativeError & ")" & vbCr
+    If ADOErr.HelpFile = "" Then
+        strError = strError & " No Help file available" & vbCr & vbCr
+    Else
+        strError = strError & " (HelpFile: " & ADOErr.HelpFile & ")" _
+        & vbCr & _
+        " (HelpContext: " & ADOErr.HelpContext & ")" & _
+        vbCr & vbCr
+    End If
+    MsgBox strError
+Next
+
+conn.Errors.Clear
+
+End Sub
+
